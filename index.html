@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>সদস্য তালিকা ও এডমিন প্যানেল</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali&display=swap" rel="stylesheet" />
+  <style>
+    /* আগের CSS অপরিবর্তিত থাকবে */
+  </style>
+</head>
+<body>  <!-- আগের HTML অপরিবর্তিত থাকবে -->  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyC_j1xa3-vlCo-Tk-WksX76Ms-6hw5036g",
+      authDomain: "userdata-26268.firebaseapp.com",
+      projectId: "userdata-26268",
+      storageBucket: "userdata-26268.appspot.com",
+      messagingSenderId: "787913440255",
+      appId: "1:787913440255:web:2f7f0d184d8c5a8dc945ca",
+      measurementId: "G-Y134KNEY91"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const PASSWORD_BASE64 = "MTIzNA==";
+
+    const loginIcon = document.getElementById('loginIcon');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const loginModal = document.getElementById('loginModal');
+    const loginForm = document.getElementById('loginForm');
+    const memberForm = document.getElementById('memberForm');
+    const memberList = document.getElementById('memberList');
+
+    function base64Decode(str) {
+      try {
+        return atob(str);
+      } catch {
+        return "";
+      }
+    }
+
+    function renderMembers() {
+      memberList.innerHTML = '';
+      db.collection("members").get().then(snapshot => {
+        if (snapshot.empty) {
+          memberList.innerHTML = '<p style="text-align:center; font-weight:600; color:#777;">কোন সদস্য নেই</p>';
+          return;
+        }
+        snapshot.forEach(doc => {
+          const m = doc.data();
+          const card = document.createElement('div');
+          card.classList.add('member-card');
+          let imgSrc = m.image || 'https://via.placeholder.com/120?text=ছবি';
+          card.innerHTML = `
+            <img src="${imgSrc}" alt="ছবি" class="member-img" />
+            <div class="member-info">
+              <p><strong>নাম:</strong> ${m.name}</p>
+              <p><strong>পিতা:</strong> ${m.father}</p>
+              <p><strong>মাতা:</strong> ${m.mother}</p>
+              <p><strong>এনআইডি:</strong> ${m.nid}</p>
+              <p><strong>মোবাইল:</strong> ${m.mobile}</p>
+              <p><strong>ঠিকানা:</strong> ${m.address}</p>
+              <p><strong>সদস্য নম্বর:</strong> ${m.memberNo}</p>
+            </div>
+          `;
+          if(localStorage.getItem('loggedIn') === 'true'){
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn';
+            delBtn.textContent = 'মুছুন';
+            delBtn.title = 'সদস্য মুছুন';
+            delBtn.addEventListener('click', async () => {
+              if(confirm('আপনি কি নিশ্চিত সদস্য মুছতে চান?')){
+                await db.collection("members").doc(doc.id).delete();
+                renderMembers();
+              }
+            });
+            card.appendChild(delBtn);
+          }
+          memberList.appendChild(card);
+        });
+      });
+    }
+
+    function updateUI() {
+      const loggedIn = localStorage.getItem('loggedIn') === 'true';
+      loginIcon.style.display = loggedIn ? 'none' : 'inline-block';
+      logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+      memberForm.style.display = loggedIn ? 'block' : 'none';
+      renderMembers();
+    }
+
+    function getBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = err => reject(err);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    loginIcon.addEventListener('click', () => {
+      loginModal.classList.add('active');
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordInput').focus();
+    });
+
+    logoutBtn.addEventListener('click', () => {
+      if(confirm('আপনি কি লগআউট করতে চান?')){
+        localStorage.removeItem('loggedIn');
+        updateUI();
+      }
+    });
+
+    loginForm.querySelector('.closeBtn').addEventListener('click', () => {
+      loginModal.classList.remove('active');
+    });
+
+    loginForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const passInput = document.getElementById('passwordInput').value.trim();
+      if(passInput === base64Decode(PASSWORD_BASE64)){
+        localStorage.setItem('loggedIn', 'true');
+        loginModal.classList.remove('active');
+        updateUI();
+        alert('সফলভাবে লগইন সম্পন্ন হয়েছে!');
+      } else {
+        alert('ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।');
+      }
+    });
+
+    memberForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const father = document.getElementById('father').value.trim();
+      const mother = document.getElementById('mother').value.trim();
+      const nid = document.getElementById('nid').value.trim();
+      const mobile = document.getElementById('mobile').value.trim();
+      const address = document.getElementById('address').value.trim();
+      const memberNo = document.getElementById('memberNo').value.trim();
+      const imageFile = document.getElementById('imageFile').files[0];
+
+      if(!/^\d+$/.test(nid)){
+        alert('সঠিক এনআইডি নম্বর দিন।'); return;
+      }
+      if(!/^01[3-9]\d{8}$/.test(mobile)){
+        alert('বাংলাদেশ মোবাইল নম্বর দিন (০১৭xxxxxxxx)।'); return;
+      }
+
+      const check = await db.collection("members").where("memberNo", "==", memberNo).get();
+      if (!check.empty) {
+        alert('এই সদস্য নম্বর ইতিমধ্যে আছে। অনন্য সদস্য নম্বর দিন।'); return;
+      }
+
+      if(imageFile && imageFile.size > 2 * 1024 * 1024){
+        alert('ছবির সাইজ ২MB এর কম হতে হবে।'); return;
+      }
+
+      let imageBase64 = '';
+      if(imageFile){
+        try {
+          imageBase64 = await getBase64(imageFile);
+        } catch {
+          alert('ছবি লোড করতে সমস্যা হয়েছে।'); return;
+        }
+      }
+
+      const newMember = { name, father, mother, nid, mobile, address, memberNo, image: imageBase64 };
+      await db.collection("members").add(newMember);
+      memberForm.reset();
+      document.getElementById('name').focus();
+      renderMembers();
+    });
+
+    updateUI();
+  </script></body>
+</html>
